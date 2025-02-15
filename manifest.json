@@ -1,0 +1,26 @@
+{
+    "manifest_version": 3,
+    "name": "Social Stockfish",
+    "version": "1.0",
+    "description": "A Chrome extension, that analyse chat history predict next 5 messages and suggest best move after doing monte carlo simulation",
+    "permissions": [
+        "activeTab",
+        "scripting",
+        "storage"
+    ],
+    "host_permissions": [
+        "https://api.anthropic.com/*",
+        "https://web.whatsapp.com/*"
+    ],
+    "action": {
+        "default_popup": "popup.html"
+    },
+    "background": {
+        "service_worker": "service-worker.js",
+        "type": "module"
+    },
+    "web_accessible_resources": [{
+        "resources": ["config.js"],
+        "matches": ["<all_urls>"]
+    }]
+}
