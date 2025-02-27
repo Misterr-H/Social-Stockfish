@@ -1,6 +1,3 @@
-// Remove the AI service import since we'll use background script
-// import { aiService } from './ai-service.js';
-
 import { SettingsUI } from '../ui/components/settings.js';
 import { StorageService } from '../services/storage.js';
 
@@ -39,10 +36,17 @@ document.getElementById('clickMe').addEventListener('click', async () => {
         button.disabled = true;
         loadingIndicator.style.display = 'block';
         
-        // Show loading animations in visualization containers
-        explorationViz.innerHTML = '<div class="viz-loading">Exploring conversation states...</div>';
-        evaluationViz.innerHTML = '<div class="viz-loading">Running Monte Carlo simulation...</div>';
-        
+        // Only show simulation loading if simulations are enabled
+        if (settings.simulationEnabled) {
+            explorationViz.style.display = 'block';
+            evaluationViz.style.display = 'block';
+            explorationViz.innerHTML = '<div class="viz-loading">Exploring conversation states...</div>';
+            evaluationViz.innerHTML = '<div class="viz-loading">Running Monte Carlo simulation...</div>';
+        } else {
+            explorationViz.style.display = 'none';
+            evaluationViz.style.display = 'none';
+        }
+
         // Additional debugging
         if (!chrome.scripting) {
             throw new Error('chrome.scripting API is not available. Check manifest permissions.');
@@ -60,17 +64,15 @@ document.getElementById('clickMe').addEventListener('click', async () => {
             alert('Please open WhatsApp Web to use this extension');
             return;
         }
-        console.log('URL is web.whatsapp.com');
 
         const chatGoal = document.getElementById('chatGoal').value.trim();
         
-        // Optional: Validate if chat goal is not empty
         if (!chatGoal) {
             alert('Please enter your chat goal');
             return;
         }
 
-        // Execute script in the active tab using chrome.scripting
+        // Execute script in the active tab to get messages
         const results = await chrome.scripting.executeScript({
             target: { tabId: tab.id },
             func: () => document.documentElement.outerHTML
@@ -84,18 +86,13 @@ document.getElementById('clickMe').addEventListener('click', async () => {
         
         console.log('Sending messages to background script:', messages);
         
-        // Check if service worker is active
-        const registration = await navigator.serviceWorker.ready;
-        if (!registration) {
-            throw new Error('Service worker not ready');
-        }
-        
         // Send messages to service worker for analysis
         const analysis = await new Promise((resolve, reject) => {
             chrome.runtime.sendMessage({
                 type: 'ANALYZE_CONVERSATION',
                 messages,
-                chatGoal
+                chatGoal,
+                simulationEnabled: Boolean(settings.simulationEnabled)
             }, response => {
                 if (chrome.runtime.lastError) {
                     reject(new Error(chrome.runtime.lastError.message));
@@ -109,128 +106,88 @@ document.getElementById('clickMe').addEventListener('click', async () => {
             });
         });
         
-        console.log('Received analysis:', analysis);
+        console.log('Analysis received:', {
+            hasSimulations: analysis.simulatedResults?.length > 0,
+            suggestionCount: analysis.suggestions?.length
+        });
         
-        // Display context
-        if (analysis.context) {
-            contextDiv.innerHTML = `
-                <h3>Context Analysis</h3>
-                <p>${analysis.context}</p>
-            `;
-        }
+        // Display results
+        displayResults(analysis, explorationViz, evaluationViz, contextDiv, suggestionsDiv);
         
-        // Create state exploration visualization
-        createExplorationVisualization(explorationViz, analysis);
-        
-        // Create Monte Carlo evaluation visualization
-        if (analysis.simulatedResults) {
-            createEvaluationVisualization(evaluationViz, analysis.simulatedResults);
-        }
-        
-        // Display suggestions with simulation results
-        displaySuggestions(analysis);
     } catch (error) {
         console.error('Error:', error);
         alert('An error occurred: ' + error.message);
     } finally {
-        // Hide loading states
         document.getElementById('loading').style.display = 'none';
         document.getElementById('clickMe').disabled = false;
     }
 });
 
 function extractMessages(html) {
-    // Create a new DOM parser
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
 
-    // Find the main container with tabindex="0" and role="application"
-    const mainContainer = doc.querySelector('div[tabindex="0"][role="application"]');
-    if (!mainContainer) {
-        return [];
-    }
-
-    // Find all message containers
-    const messageContainers = mainContainer.querySelectorAll('div[role="row"]');
-
-    // Extract messages
+    const messageElements = doc.querySelectorAll('div[data-pre-plain-text]');
     const messages = [];
-    messageContainers.forEach(container => {
-        const messageIn = container.querySelector('.message-in');
-        const messageOut = container.querySelector('.message-out');
-        const message = messageIn || messageOut;
 
-        if (message) {
-            // Update sender extraction to handle empty span with aria-label
-            const senderElement = message.querySelector('span[aria-label]');
-            const sender = senderElement ? senderElement.getAttribute('aria-label') : '';
-            let mockSender = "You";
-            if (sender.includes("You")) {
-                mockSender = "Our User";
-            } else {
-                mockSender = "Other User";
+    messageElements.forEach(element => {
+        const preText = element.getAttribute('data-pre-plain-text');
+        const match = preText.match(/\[(.*?)\] (.*?):/);
+        if (match) {
+            const sender = match[2].trim();
+            console.log('Sender:', sender);
+            const text = element.querySelector('.selectable-text')?.textContent || '';
+            if (text) {
+                messages.push({
+                    // sender: sender === 'You' ? 'Our User' : 'Other User',
+                    sender: sender,
+                    text: text.trim()
+                });
             }
-            const textElement = message.querySelector('.selectable-text');
-            const timeElement = message.querySelector('.x1rg5ohu');
-            const text = textElement ? textElement.textContent.trim() : '';
-            const time = timeElement ? timeElement.textContent.trim() : '';
-
-            messages.push({
-                sender: mockSender,
-                text,
-                time
-            });
         }
     });
 
     return messages;
 }
 
-function displaySuggestions(analysis) {
-    const suggestionsDiv = document.getElementById('suggestions');
-    const contextDiv = document.getElementById('analysis-context');
-    const explorationViz = document.getElementById('exploration-viz');
-    const evaluationViz = document.getElementById('evaluation-viz');
-    
-    // Clear previous visualizations
-    explorationViz.innerHTML = '';
-    evaluationViz.innerHTML = '';
-    
+function displayResults(analysis, explorationViz, evaluationViz, contextDiv, suggestionsDiv) {
     // Display context
-    if (analysis.context) {
-        contextDiv.innerHTML = `
-            <h3>Context Analysis</h3>
-            <p>${analysis.context}</p>
-        `;
-    }
-    
-    // Create state exploration visualization
-    createExplorationVisualization(explorationViz, analysis);
-    
-    // Create Monte Carlo evaluation visualization
-    if (analysis.simulatedResults) {
+    contextDiv.innerHTML = `
+        <h3>Context Analysis</h3>
+        <p>${analysis.context}</p>
+    `;
+
+    // Only show visualizations if simulations were run
+    if (analysis.simulatedResults && analysis.simulatedResults.length > 0) {
+        explorationViz.style.display = 'block';
+        evaluationViz.style.display = 'block';
+        createExplorationVisualization(explorationViz, analysis);
         createEvaluationVisualization(evaluationViz, analysis.simulatedResults);
+    } else {
+        explorationViz.style.display = 'none';
+        evaluationViz.style.display = 'none';
     }
-    
-    // Display suggestions with simulation results
+
+    // Display suggestions
     const suggestionsHtml = analysis.suggestions
-        .map((s, i) => {
-            const simulationResult = analysis.simulatedResults?.[i];
-            const avgSuccess = simulationResult?.averageSuccess.toFixed(1) || 'N/A';
+        .map((suggestion, index) => {
+            // Only show simulation results if they exist
+            const hasSimulation = suggestion.simulatedSuccess !== null && suggestion.simulatedPaths !== null;
             
             return `
                 <div class="suggestion">
-                    <h3>Suggestion ${i + 1}</h3>
-                    <p><strong>Response:</strong> ${s.response}</p>
-                    <p><strong>Likely Outcome:</strong> ${s.outcome}</p>
-                    <p class="probability">Initial Success Probability: ${s.probability}%</p>
-                    <p class="simulation">Simulated Success Rate: ${avgSuccess}%</p>
-                    <p class="reasoning"><strong>Reasoning:</strong> ${s.reasoning}</p>
-                    ${simulationResult ? `
+                    <h3>Suggestion ${index + 1}</h3>
+                    <p><strong>Response:</strong> ${suggestion.response}</p>
+                    <p><strong>Expected Outcome:</strong> ${suggestion.outcome}</p>
+                    <p class="probability">Initial Probability: ${suggestion.probability}%</p>
+                    <p><strong>Reasoning:</strong> ${suggestion.reasoning}</p>
+                    <p><strong>Tags:</strong> ${suggestion.tags.join(', ')}</p>
+                    ${hasSimulation ? `
+                        <p class="simulation">Simulated Success Rate: ${Math.round(suggestion.simulatedSuccess)}%</p>
                         <details>
                             <summary>View Simulation Details</summary>
                             <div class="simulation-details">
-                                ${formatSimulationPaths(simulationResult.simulatedPaths)}
+                                ${formatSimulationPaths(suggestion.simulatedPaths)}
                             </div>
                         </details>
                     ` : ''}
@@ -248,11 +205,9 @@ function createExplorationVisualization(container, analysis) {
     const dotSize = 6;
     const dotSpacing = 12;
     
-    // Calculate grid dimensions
     const rows = Math.ceil(Math.sqrt(analysis.suggestions.length * 10));
     const cols = Math.ceil((analysis.suggestions.length * 10) / rows);
     
-    // Create dots grid
     const dotsHtml = Array(rows).fill(0).map((_, row) => 
         Array(cols).fill(0).map((_, col) => {
             const x = (col * dotSpacing) + (dotSize / 2);
@@ -290,7 +245,6 @@ function createEvaluationVisualization(container, simulatedResults) {
     const dotSize = 6;
     const dotSpacing = 12;
     
-    // Create dots grid for each simulation result
     const dotsHtml = simulatedResults.map((result, resultIndex) => {
         const paths = flattenPaths(result.simulatedPaths);
         return paths.map((path, pathIndex) => {
@@ -351,4 +305,4 @@ function formatSimulationPaths(paths, depth = 0) {
             ${formatSimulationPaths(path.subPaths, depth + 1)}
         </div>
     `).join('');
-}
+} 

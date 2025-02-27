@@ -1,0 +1,179 @@
+/* Modal styles */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+}
+
+.modal-content {
+    background-color: white;
+    margin: 15% auto;
+    padding: 20px;
+    border-radius: 8px;
+    width: 80%;
+}
+
+/* Settings styles */
+.settings-section {
+    margin: 15px 0;
+}
+
+.settings-section label {
+    display: block;
+    margin-bottom: 5px;
+}
+
+.settings-section input,
+.settings-section select {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+.button-group {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+/* Header styles */
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.icon-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+}
+
+.icon-button:hover {
+    background-color: #f0f0f0;
+    border-radius: 50%;
+}
+
+/* Loading indicator */
+.loading {
+    display: none;
+    text-align: center;
+    margin: 20px 0;
+}
+
+.loading-spinner {
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #3498db;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+    margin: 0 auto;
+}
+
+.loading-text {
+    margin-top: 10px;
+    color: #666;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Visualization containers */
+.viz-container {
+    margin: 20px 0;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.viz-loading {
+    text-align: center;
+    color: #666;
+    padding: 20px;
+}
+
+/* Suggestions styling */
+.suggestion {
+    margin: 20px 0;
+    padding: 15px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background-color: #f9f9f9;
+}
+
+.suggestion h3 {
+    margin-top: 0;
+    color: #333;
+}
+
+.probability, .simulation {
+    font-weight: bold;
+    color: #1a73e8;
+}
+
+.simulation-details {
+    margin-top: 10px;
+    padding: 10px;
+    background-color: #fff;
+    border-radius: 4px;
+}
+
+.simulation-path {
+    padding: 10px;
+    border-left: 2px solid #ddd;
+    margin: 10px 0;
+}
+
+/* SVG visualizations */
+.exploration-svg, .evaluation-svg {
+    background-color: #fff;
+    border-radius: 4px;
+    padding: 10px;
+}
+
+.exploration-dot, .evaluation-dot {
+    transition: opacity 0.3s ease-in-out;
+}
+
+/* Context section */
+.context {
+    margin: 20px 0;
+    padding: 15px;
+    background-color: #f0f7ff;
+    border-radius: 4px;
+}
+
+.context h3 {
+    margin-top: 0;
+    color: #1a73e8;
+}
+
+/* Add to existing CSS */
+.toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+}
+
+.toggle-description {
+    font-size: 0.9em;
+    color: #666;
+    margin-left: 5px;
+}
+
+input[type="checkbox"] {
+    width: auto !important;
+    margin-right: 5px;
+} 
