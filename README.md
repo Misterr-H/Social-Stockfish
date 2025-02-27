@@ -2,4 +2,4 @@
 
 A chrome extension to generate optimised responses based on user goals and conversation going on
 
-It is simply a whatsapp wrapper around Claude, no advanced analysis functionality yet
+
