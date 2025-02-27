@@ -1,5 +1,8 @@
-// Import the actual background script
-import './background.js';
+// Import service worker code
+import './service-worker.js';
 
-// This file serves as the entry point for the service worker
-console.log('Background wrapper initialized'); 
+// Log initialization
+console.log('Background wrapper initialized');
+
+// Re-export all functions from service worker
+export * from './service-worker.js'; 

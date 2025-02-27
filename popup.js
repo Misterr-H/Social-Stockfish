@@ -15,17 +15,20 @@ document.getElementById('clickMe').addEventListener('click', async () => {
     try {
         const button = document.getElementById('clickMe');
         const loadingIndicator = document.getElementById('loading');
+        const explorationViz = document.getElementById('exploration-viz');
+        const evaluationViz = document.getElementById('evaluation-viz');
         const suggestionsDiv = document.getElementById('suggestions');
         const contextDiv = document.getElementById('analysis-context');
         
-        // Clear previous results
+        // Clear previous results and show loading state
         suggestionsDiv.innerHTML = '';
         contextDiv.innerHTML = '';
-        
-        // Show loading state
-        button.disabled = true;
         loadingIndicator.style.display = 'block';
-
+        
+        // Show loading animations in visualization containers
+        explorationViz.innerHTML = '<div class="viz-loading">Exploring conversation states...</div>';
+        evaluationViz.innerHTML = '<div class="viz-loading">Running Monte Carlo simulation...</div>';
+        
         // Additional debugging
         if (!chrome.scripting) {
             throw new Error('chrome.scripting API is not available. Check manifest permissions.');
@@ -112,25 +115,21 @@ document.getElementById('clickMe').addEventListener('click', async () => {
             `;
         }
         
-        // Display suggestions to user
-        const suggestionsHtml = analysis.suggestions
-            .map((s, i) => `
-                <div class="suggestion">
-                    <h3>Suggestion ${i + 1}</h3>
-                    <p><strong>Response:</strong> ${s.response}</p>
-                    <p><strong>Likely Outcome:</strong> ${s.outcome}</p>
-                    <p class="probability">Success Probability: ${s.probability}%</p>
-                    <p class="reasoning"><strong>Reasoning:</strong> ${s.reasoning}</p>
-                </div>
-            `)
-            .join('');
-            
-        suggestionsDiv.innerHTML = suggestionsHtml;
+        // Create state exploration visualization
+        createExplorationVisualization(explorationViz, analysis);
+        
+        // Create Monte Carlo evaluation visualization
+        if (analysis.simulatedResults) {
+            createEvaluationVisualization(evaluationViz, analysis.simulatedResults);
+        }
+        
+        // Display suggestions with simulation results
+        displaySuggestions(analysis);
     } catch (error) {
         console.error('Error:', error);
         alert('An error occurred: ' + error.message);
     } finally {
-        // Hide loading state
+        // Hide loading states
         document.getElementById('loading').style.display = 'none';
         document.getElementById('clickMe').disabled = false;
     }
@@ -181,4 +180,171 @@ function extractMessages(html) {
     });
 
     return messages;
+}
+
+function displaySuggestions(analysis) {
+    const suggestionsDiv = document.getElementById('suggestions');
+    const contextDiv = document.getElementById('analysis-context');
+    const explorationViz = document.getElementById('exploration-viz');
+    const evaluationViz = document.getElementById('evaluation-viz');
+    
+    // Clear previous visualizations
+    explorationViz.innerHTML = '';
+    evaluationViz.innerHTML = '';
+    
+    // Display context
+    if (analysis.context) {
+        contextDiv.innerHTML = `
+            <h3>Context Analysis</h3>
+            <p>${analysis.context}</p>
+        `;
+    }
+    
+    // Create state exploration visualization
+    createExplorationVisualization(explorationViz, analysis);
+    
+    // Create Monte Carlo evaluation visualization
+    if (analysis.simulatedResults) {
+        createEvaluationVisualization(evaluationViz, analysis.simulatedResults);
+    }
+    
+    // Display suggestions with simulation results
+    const suggestionsHtml = analysis.suggestions
+        .map((s, i) => {
+            const simulationResult = analysis.simulatedResults?.[i];
+            const avgSuccess = simulationResult?.averageSuccess.toFixed(1) || 'N/A';
+            
+            return `
+                <div class="suggestion">
+                    <h3>Suggestion ${i + 1}</h3>
+                    <p><strong>Response:</strong> ${s.response}</p>
+                    <p><strong>Likely Outcome:</strong> ${s.outcome}</p>
+                    <p class="probability">Initial Success Probability: ${s.probability}%</p>
+                    <p class="simulation">Simulated Success Rate: ${avgSuccess}%</p>
+                    <p class="reasoning"><strong>Reasoning:</strong> ${s.reasoning}</p>
+                    ${simulationResult ? `
+                        <details>
+                            <summary>View Simulation Details</summary>
+                            <div class="simulation-details">
+                                ${formatSimulationPaths(simulationResult.simulatedPaths)}
+                            </div>
+                        </details>
+                    ` : ''}
+                </div>
+            `;
+        })
+        .join('');
+        
+    suggestionsDiv.innerHTML = suggestionsHtml;
+}
+
+function createExplorationVisualization(container, analysis) {
+    const width = container.clientWidth;
+    const height = 300;
+    const dotSize = 6;
+    const dotSpacing = 12;
+    
+    // Calculate grid dimensions
+    const rows = Math.ceil(Math.sqrt(analysis.suggestions.length * 10));
+    const cols = Math.ceil((analysis.suggestions.length * 10) / rows);
+    
+    // Create dots grid
+    const dotsHtml = Array(rows).fill(0).map((_, row) => 
+        Array(cols).fill(0).map((_, col) => {
+            const x = (col * dotSpacing) + (dotSize / 2);
+            const y = (row * dotSpacing) + (dotSize / 2);
+            return `<circle 
+                cx="${x}" 
+                cy="${y}" 
+                r="${dotSize/2}" 
+                fill="#4285f4" 
+                class="exploration-dot"
+            />`;
+        }).join('')
+    ).join('');
+    
+    container.innerHTML = `
+        <h3>Conversational State Exploration</h3>
+        <svg width="${width}" height="${height}" class="exploration-svg">
+            ${dotsHtml}
+        </svg>
+    `;
+    
+    // Animate dots appearing
+    const dots = container.querySelectorAll('.exploration-dot');
+    dots.forEach((dot, i) => {
+        dot.style.opacity = '0';
+        setTimeout(() => {
+            dot.style.opacity = '1';
+        }, i * 10);
+    });
+}
+
+function createEvaluationVisualization(container, simulatedResults) {
+    const width = container.clientWidth;
+    const height = 300;
+    const dotSize = 6;
+    const dotSpacing = 12;
+    
+    // Create dots grid for each simulation result
+    const dotsHtml = simulatedResults.map((result, resultIndex) => {
+        const paths = flattenPaths(result.simulatedPaths);
+        return paths.map((path, pathIndex) => {
+            const x = (pathIndex * dotSpacing) + (dotSize / 2);
+            const y = (resultIndex * dotSpacing * 3) + (dotSize / 2);
+            const color = path.success >= 70 ? '#34A853' : '#EA4335';
+            return `<circle 
+                cx="${x}" 
+                cy="${y}" 
+                r="${dotSize/2}" 
+                fill="${color}"
+                class="evaluation-dot"
+                data-success="${path.success}"
+            />`;
+        }).join('');
+    }).join('');
+    
+    container.innerHTML = `
+        <h3>Monte Carlo Evaluation</h3>
+        <svg width="${width}" height="${height}" class="evaluation-svg">
+            ${dotsHtml}
+        </svg>
+    `;
+    
+    // Animate dots appearing
+    const dots = container.querySelectorAll('.evaluation-dot');
+    dots.forEach((dot, i) => {
+        dot.style.opacity = '0';
+        setTimeout(() => {
+            dot.style.opacity = '1';
+        }, i * 20);
+    });
+}
+
+function flattenPaths(paths) {
+    const flattened = [];
+    
+    function traverse(path) {
+        if (!path) return;
+        flattened.push(path);
+        if (path.subPaths) {
+            path.subPaths.forEach(traverse);
+        }
+    }
+    
+    paths.forEach(traverse);
+    return flattened;
+}
+
+function formatSimulationPaths(paths, depth = 0) {
+    if (!paths || paths.length === 0) return '';
+    
+    return paths.map(path => `
+        <div class="simulation-path" style="margin-left: ${depth * 20}px">
+            <p><strong>Response:</strong> ${path.response}</p>
+            <p><strong>Other User:</strong> ${path.otherUserReply}</p>
+            <p><strong>Success Score:</strong> ${path.success}%</p>
+            ${formatSimulationPaths(path.subPaths, depth + 1)}
+        </div>
+    `).join('');
 }

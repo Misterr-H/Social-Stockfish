@@ -69,6 +69,44 @@
         background-color: #ccc;
         cursor: not-allowed;
       }
+      /* Visualization containers */
+      .viz-container {
+        margin: 20px 0;
+        padding: 10px;
+        background: #f8f9fa;
+        border-radius: 8px;
+      }
+      
+      .viz-container h3 {
+        margin-bottom: 15px;
+        color: #202124;
+      }
+      
+      /* SVG styles */
+      .exploration-svg, .evaluation-svg {
+        width: 100%;
+        height: 300px;
+        background: white;
+        border-radius: 4px;
+      }
+      
+      .exploration-dot, .evaluation-dot {
+        transition: opacity 0.3s ease-in-out;
+      }
+      
+      /* Loading animation for visualizations */
+      .viz-loading {
+        text-align: center;
+        padding: 20px;
+        color: #666;
+        font-style: italic;
+      }
+      
+      /* Animation for dots */
+      @keyframes appear {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
     </style>
 </head>
 <body style="width: 400px;">
@@ -85,6 +123,9 @@
     <div class="loading-spinner"></div>
     <div class="loading-text">Analyzing conversation...</div>
   </div>
+  
+  <div id="exploration-viz" class="viz-container"></div>
+  <div id="evaluation-viz" class="viz-container"></div>
   
   <div id="analysis-context" class="context"></div>
   <div id="suggestions"></div>
