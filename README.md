@@ -3,3 +3,13 @@
 A chrome extension to generate optimised responses based on user goals and conversation going on
 
 
+## Features
+
+- 🎲 Monte Carlo conversation simulation (experimental feature, currently in beta)
+  - Simulates multiple conversation paths to find optimal responses
+  - Configurable simulation depth and parallel paths
+  - Can be enabled/disabled via settings
+- 🤖 Multiple AI model support
+  - OpenAI GPT models
+  - Anthropic Claude models
+  - Easy to switch between models
